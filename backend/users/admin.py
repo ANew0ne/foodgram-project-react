@@ -1,12 +1,14 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser, Subscription
+from django.contrib.auth.models import Group
 
+from users.models import FoodgramUser, Subscription
 
 admin.site.empty_value_display = 'пусто'
+admin.site.unregister(Group)
 
 
-@admin.register(CustomUser)
+@admin.register(FoodgramUser)
 class UserAdmin(UserAdmin):
     """Административный класс для управления пользователями."""
 

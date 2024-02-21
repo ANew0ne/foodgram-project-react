@@ -1,10 +1,10 @@
-from django.core.validators import RegexValidator, MinValueValidator
-from django.db import models
-
 from colorfield.fields import ColorField
-import re
+from django.db import models
+from django.core.validators import MinValueValidator
+from django.contrib.auth import get_user_model
 
-from users.models import CustomUser
+
+UserModel = get_user_model()
 
 MAX_LENGTH = 200
 
@@ -13,24 +13,16 @@ class Tag(models.Model):
     """Модель тэгов."""
 
     name = models.CharField('Название', max_length=MAX_LENGTH, unique=True)
-    color = ColorField('Цвет в HEX')
+    color = ColorField('Цвет в HEX', unique=True)
     slug = models.SlugField(
         'Уникальный слаг',
         max_length=MAX_LENGTH,
         unique=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[-a-zA-Z0-9_]+$',
-                message='Слаг может содержать только буквы, цифры, _ и -',
-                flags=re.IGNORECASE,
-            )
-        ]
     )
 
     class Meta:
         verbose_name = 'тэг'
         verbose_name_plural = 'Тэги'
-        default_related_name = 'tags'
 
     def __str__(self):
         return self.name
@@ -63,7 +55,7 @@ class Recipe(models.Model):
     """Модель рецептов."""
 
     author = models.ForeignKey(
-        CustomUser,
+        UserModel,
         on_delete=models.CASCADE,
         verbose_name='Автор'
     )
@@ -102,10 +94,13 @@ class Recipe(models.Model):
         verbose_name = 'рецепт'
         verbose_name_plural = 'Рецепты'
         default_related_name = 'recipes'
-        ordering = ['-pub_date']
+        ordering = ('-pub_date',)
 
     def __str__(self):
         return self.name
+
+    def get_favorites_count(recipe):
+        return Favorites.objects.filter(recipe=recipe).count()
 
 
 class RecipeIngredient(models.Model):
@@ -134,7 +129,7 @@ class BaseListModel(models.Model):
     """Базовая модель для избранного и списка покупок."""
 
     user = models.ForeignKey(
-        CustomUser, on_delete=models.CASCADE, related_name='%(class)susers'
+        UserModel, on_delete=models.CASCADE, related_name='%(class)susers'
     )
     recipe = models.ForeignKey(
         Recipe, on_delete=models.CASCADE, related_name='%(class)srecipes'

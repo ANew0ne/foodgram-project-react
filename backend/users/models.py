@@ -1,13 +1,13 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import RegexValidator
+from django.contrib.auth.validators import UnicodeUsernameValidator
 
 
 EMAIL_MAX_LENGTH = 254
 STRING_MAX_LENGTH = 150
 
 
-class CustomUser(AbstractUser):
+class FoodgramUser(AbstractUser):
     """Модель пользователя."""
 
     email = models.EmailField(
@@ -19,13 +19,7 @@ class CustomUser(AbstractUser):
         'Юзернейм',
         max_length=STRING_MAX_LENGTH,
         unique=True,
-        validators=[
-            RegexValidator(
-                regex=r'^[\w.@+-]+$',
-                message=('Имя пользователя может содержать '
-                         'только буквы, цифры, _, . , @ и -')
-            )
-        ]
+        validators=[UnicodeUsernameValidator()],
     )
     password = models.CharField('Пароль', max_length=STRING_MAX_LENGTH)
     first_name = models.CharField('Имя', max_length=STRING_MAX_LENGTH)
@@ -36,20 +30,20 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
-        ordering = ('date_joined',)
+        ordering = ('date_joined', 'username')
 
 
 class Subscription(models.Model):
     """Модель подписок."""
 
     user = models.ForeignKey(
-        CustomUser,
+        FoodgramUser,
         on_delete=models.CASCADE,
         related_name='subscribers',
         verbose_name='Подписчик'
     )
     subscription = models.ForeignKey(
-        CustomUser,
+        FoodgramUser,
         on_delete=models.CASCADE,
         related_name='subscriptions',
         verbose_name='Подписки'

@@ -15,7 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from api.filters import RecipeFilter, IngredientFilter
-from api.paginators import CustomPageNumberPagination
+from api.paginators import FoodgramPageNumberPagination
 from api.permissions import IsAuthorOrReadOnly
 from api.serializers import (
     RecipeReadSerializer, RecipeWriteSerializer,
@@ -24,7 +24,7 @@ from api.serializers import (
     RecipesOfUserSerializer
 )
 from recipes.models import Recipe, Tag, Ingredient, Favorites, ShoppingCart
-from users.models import Subscription, CustomUser
+from users.models import Subscription, FoodgramUser
 
 
 class RecipeViewSet(ModelViewSet):
@@ -33,9 +33,8 @@ class RecipeViewSet(ModelViewSet):
     """
 
     queryset = Recipe.objects.all()
-    pagination_class = CustomPageNumberPagination
-    permission_classes = (IsAuthorOrReadOnly,
-                          permissions.IsAuthenticatedOrReadOnly,)
+    pagination_class = FoodgramPageNumberPagination
+    permission_classes = (IsAuthorOrReadOnly,)
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     ordering_fields = ('-pub_date', 'name',)
@@ -159,7 +158,6 @@ class TagViewSet(ReadOnlyModelViewSet):
 
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
-    pagination_class = None
 
 
 class IngredientViewSet(ReadOnlyModelViewSet):
@@ -167,17 +165,16 @@ class IngredientViewSet(ReadOnlyModelViewSet):
 
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
-    pagination_class = None
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
 
 
-class CustomUserViewSet(UserViewSet):
+class FoodgramUserViewSet(UserViewSet):
     """API-интерфейс для управления профилями пользователей и подписками."""
 
-    queryset = CustomUser.objects.all()
+    queryset = FoodgramUser.objects.all()
     serializer_class = UserSerializer
-    pagination_class = CustomPageNumberPagination
+    pagination_class = FoodgramPageNumberPagination
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
     def get_permissions(self):
@@ -191,7 +188,7 @@ class CustomUserViewSet(UserViewSet):
     def subscribe(self, request, id):
         user = request.user
         if request.method == 'POST':
-            subscription = get_object_or_404(CustomUser, id=id)
+            subscription = get_object_or_404(FoodgramUser, id=id)
             if user == subscription:
                 return Response(
                     {'ошибка': 'Вы не можете подписаться на себя'},
@@ -211,7 +208,7 @@ class CustomUserViewSet(UserViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         elif request.method == 'DELETE':
-            subscription = get_object_or_404(CustomUser, id=id)
+            subscription = get_object_or_404(FoodgramUser, id=id)
             if not Subscription.objects.filter(
                 user=user,
                 subscription=subscription
@@ -229,8 +226,8 @@ class CustomUserViewSet(UserViewSet):
             permission_classes=(IsAuthenticated,))
     def subscriptions(self, request):
         user = request.user
-        queryset = CustomUser.objects.filter(subscriptions__user=user)
-        paginator = CustomPageNumberPagination()
+        queryset = FoodgramUser.objects.filter(subscriptions__user=user)
+        paginator = FoodgramPageNumberPagination()
         page = paginator.paginate_queryset(queryset, request)
         serializer = RecipesOfUserSerializer(
             page,

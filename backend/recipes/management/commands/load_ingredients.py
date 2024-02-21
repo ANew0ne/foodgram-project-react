@@ -1,6 +1,8 @@
 import json
-from recipes.models import Ingredient
+
 from django.core.management.base import BaseCommand
+
+from recipes.models import Ingredient
 
 
 class Command(BaseCommand):
@@ -8,8 +10,12 @@ class Command(BaseCommand):
 
         with open('data/ingredients.json', 'rb') as f:
             data = json.load(f)
-            for ingredient_data in data:
-                Ingredient.objects.get_or_create(
+        ingredients = []
+        for ingredient_data in data:
+            ingredients.append(
+                Ingredient(
                     name=ingredient_data['name'],
                     measurement_unit=ingredient_data['measurement_unit'],
                 )
+            )
+        Ingredient.objects.bulk_create(ingredients)

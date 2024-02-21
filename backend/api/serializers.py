@@ -1,33 +1,10 @@
-import base64
-import re
-
-from django.core.files.base import ContentFile
 from rest_framework import serializers
+from django.db import transaction
 
-from users.models import CustomUser, Subscription
-from recipes.models import (Favorites, Ingredient, Recipe,
-                            RecipeIngredient, ShoppingCart, Tag)
-
-
-class Base64ImageField(serializers.ImageField):
-    """
-    Поле изображения, которое принимает закодированную
-    в Base64 строку изображения.
-    Преобразует строку Base64 в объект ContentFile и
-    сохраняет его в поле изображения.
-    """
-
-    def to_internal_value(self, data):
-        if isinstance(data, str) and data.startswith('data:image'):
-            format, imgstr = data.split(';base64,')
-            ext = format.split('/')[-1]
-            data = ContentFile(base64.b64decode(imgstr), name='temp.' + ext)
-        return super().to_internal_value(data)
-
-    def to_representation(self, value):
-        if value:
-            return value.url
-        return None
+from api.image_fields import Base64ImageField
+from users.models import FoodgramUser
+from recipes.models import (Ingredient, Recipe,
+                            RecipeIngredient, Tag)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -36,15 +13,15 @@ class UserSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
-        model = CustomUser
+        model = FoodgramUser
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed')
 
     def get_is_subscribed(self, obj):
-        user = self.context.get('request').user
-        if user.is_authenticated:
-            return Subscription.objects.filter(
-                user=user,
+        request = self.context.get('request')
+        if request and obj and request.user.is_authenticated:
+            return obj.subscribers.filter(
+                user=request.user,
                 subscription=obj
             ).exists()
         return False
@@ -118,19 +95,19 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         exclude = ('pub_date',)
 
     def get_is_favorited(self, obj):
-        user = self.context.get('request').user
-        if user.is_authenticated:
-            return Favorites.objects.filter(
-                user=user,
+        request = self.context.get('request')
+        if request and obj and request.user.is_authenticated:
+            return obj.favoritesrecipes.filter(
+                user=request.user,
                 recipe=obj
             ).exists()
         return False
 
     def get_is_in_shopping_cart(self, obj):
-        user = self.context.get('request').user
-        if user.is_authenticated:
-            return ShoppingCart.objects.filter(
-                user=user,
+        request = self.context.get('request')
+        if request and obj and request.user.is_authenticated:
+            return obj.shoppingcartrecipes.filter(
+                user=request.user,
                 recipe=obj
             ).exists()
         return False
@@ -166,6 +143,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Тэги не должны повторяться.')
         return data
 
+    @transaction.atomic
     def create(self, validated_data):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
@@ -175,7 +153,8 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         self.get_ingredients(recipe, ingredients)
         return recipe
 
-    def get_ingredients(self, recipe, ingredients_list):
+    @staticmethod
+    def get_ingredients(recipe, ingredients_list):
         RecipeIngredient.objects.bulk_create(
             [RecipeIngredient(recipe=recipe,
                               ingredient=ingredient['id'],
@@ -183,21 +162,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 for ingredient in ingredients_list]
         )
 
+    @transaction.atomic
     def update(self, instance, validated_data):
         ingredients = validated_data.pop('ingredients')
         tags = validated_data.pop('tags')
         instance.tags.set(tags)
         instance.ingredients.clear()
         self.get_ingredients(instance, ingredients)
-        instance.image = validated_data.get('image', instance.image)
-        instance.name = validated_data.get('name', instance.name)
-        instance.text = validated_data.get('text', instance.text)
-        instance.cooking_time = validated_data.get(
-            'cooking_time',
-            instance.cooking_time
-        )
-        instance.save()
-        return instance
+        return super().update(instance, validated_data)
 
 
 class RecipesOfUserSerializer(UserSerializer):
@@ -207,7 +179,7 @@ class RecipesOfUserSerializer(UserSerializer):
     recipes_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = CustomUser
+        model = FoodgramUser
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
@@ -216,11 +188,10 @@ class RecipesOfUserSerializer(UserSerializer):
                          get('recipes_limit'))
         recipes = obj.recipes.all()
         if recipes_limit:
-            if not re.match(r"^[0-9]+$", recipes_limit):
-                raise serializers.ValidationError(
-                    {'recipes_limit': 'Недопустимое значение: '
-                     'должно быть положительное целое число.'})
-            recipes = recipes[:int(recipes_limit)]
+            try:
+                recipes = recipes[:int(recipes_limit)]
+            except ValueError:
+                pass
         serializer = PreviewRecipeSerializer(
             recipes,
             many=True,

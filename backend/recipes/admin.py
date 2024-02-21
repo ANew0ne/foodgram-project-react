@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from .models import (Recipe, Ingredient, Tag, RecipeIngredient,
-                     ShoppingCart, Favorites)
+from recipes.models import (Recipe, Ingredient, Tag, RecipeIngredient,
+                            ShoppingCart, Favorites)
 
 
 admin.site.empty_value_display = 'пусто'
@@ -20,6 +20,7 @@ class RecipeAdmin(admin.ModelAdmin):
     list_display = (
         'name',
         'author',
+        'get_favorites_count'
     )
     list_filter = (
         'tags',

@@ -13,8 +13,8 @@ class RecipeFilter(FilterSet):
         field_name='tags__slug',
         to_field_name='slug',
     )
-    is_favorited = filters.NumberFilter(method='filter_by_favorited')
-    is_in_shopping_cart = filters.NumberFilter(
+    is_favorited = filters.BooleanFilter(method='filter_by_favorited')
+    is_in_shopping_cart = filters.BooleanFilter(
         method='filter_by_shopping_cart'
     )
 
