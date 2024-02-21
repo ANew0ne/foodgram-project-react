@@ -132,3 +132,5 @@ dmypy.json
 .idea
 
 /infra-dev
+media/
+collected_static/
