@@ -1,10 +1,14 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from api.image_fields import Base64ImageField
-from users.models import FoodgramUser
-from recipes.models import (Ingredient, Recipe,
+from users.models import Subscription
+from recipes.models import (Ingredient, Recipe, Favorites, ShoppingCart,
                             RecipeIngredient, Tag)
+
+
+UserModel = get_user_model()
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -13,14 +17,14 @@ class UserSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
 
     class Meta:
-        model = FoodgramUser
+        model = UserModel
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed')
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
         if request and obj and request.user.is_authenticated:
-            return obj.subscribers.filter(
+            return obj.subscriptions.filter(
                 user=request.user,
                 subscription=obj
             ).exists()
@@ -87,30 +91,13 @@ class RecipeReadSerializer(serializers.ModelSerializer):
         many=True
     )
     image = Base64ImageField(required=True, allow_null=False)
-    is_favorited = serializers.SerializerMethodField()
-    is_in_shopping_cart = serializers.SerializerMethodField()
+    is_favorited = serializers.BooleanField(read_only=True, default=False)
+    is_in_shopping_cart = serializers.BooleanField(read_only=True,
+                                                   default=False)
 
     class Meta:
         model = Recipe
         exclude = ('pub_date',)
-
-    def get_is_favorited(self, obj):
-        request = self.context.get('request')
-        if request and obj and request.user.is_authenticated:
-            return obj.favoritesrecipes.filter(
-                user=request.user,
-                recipe=obj
-            ).exists()
-        return False
-
-    def get_is_in_shopping_cart(self, obj):
-        request = self.context.get('request')
-        if request and obj and request.user.is_authenticated:
-            return obj.shoppingcartrecipes.filter(
-                user=request.user,
-                recipe=obj
-            ).exists()
-        return False
 
 
 class RecipeWriteSerializer(serializers.ModelSerializer):
@@ -179,7 +166,7 @@ class RecipesOfUserSerializer(UserSerializer):
     recipes_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = FoodgramUser
+        model = UserModel
         fields = ('email', 'id', 'username', 'first_name',
                   'last_name', 'is_subscribed', 'recipes', 'recipes_count')
 
@@ -200,3 +187,76 @@ class RecipesOfUserSerializer(UserSerializer):
 
     def get_recipes_count(self, obj):
         return obj.recipes.count()
+
+
+class FavoriteSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
+    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+
+    class Meta:
+        model = Favorites
+        fields = ('user', 'recipe')
+
+    def validate(self, data):
+        user = data.get('user')
+        recipe = data.get('recipe')
+        if Favorites.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(
+                'Этот рецепт уже есть в избранном.'
+            )
+        return data
+
+    def to_representation(self, instance):
+        recipe = instance.recipe
+        return PreviewRecipeSerializer(recipe, context=self.context).data
+
+
+class ShoppingCartSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
+    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
+
+    class Meta:
+        model = ShoppingCart
+        fields = ('user', 'recipe')
+
+    def validate(self, data):
+        user = data.get('user')
+        recipe = data.get('recipe')
+        if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
+            raise serializers.ValidationError(
+                'Этот рецепт уже есть в списке покупок.'
+            )
+        return data
+
+    def to_representation(self, instance):
+        recipe = instance.recipe
+        return PreviewRecipeSerializer(recipe, context=self.context).data
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
+    subscription = serializers.PrimaryKeyRelatedField(
+        queryset=UserModel.objects.all())
+
+    class Meta:
+        model = Subscription
+        fields = ('user', 'subscription')
+
+    def validate(self, data):
+        user = data.get('user')
+        subscription = data.get('subscription')
+        if user == subscription:
+            raise serializers.ValidationError(
+                'Вы не можете подписаться на себя',
+            )
+        if Subscription.objects.filter(
+            user=user, subscription=subscription
+        ).exists():
+            raise serializers.ValidationError(
+                'Вы уже подписаны на этого пользователя',
+            )
+        return data
+
+    def to_representation(self, instance):
+        subscription = instance.subscription
+        return RecipesOfUserSerializer(subscription, context=self.context).data
