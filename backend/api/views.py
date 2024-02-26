@@ -5,7 +5,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.pagesizes import A4
 
 from django.contrib.auth import get_user_model
-from django.db.models import Exists, OuterRef, Sum
+from django.db.models import Sum
 from djoser.views import UserViewSet
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
@@ -50,20 +50,7 @@ class RecipeViewSet(ModelViewSet):
 
     def get_queryset(self):
         if self.request.user.is_authenticated:
-            return super().get_queryset().annotate(
-                is_favorited=Exists(
-                    Favorites.objects.filter(
-                        recipe=OuterRef('pk'),
-                        user=self.request.user
-                    )
-                ),
-                is_in_shopping_cart=Exists(
-                    ShoppingCart.objects.filter(
-                        recipe=OuterRef('pk'),
-                        user=self.request.user
-                    )
-                ),
-            )
+            return super().get_queryset().recipe_annotate(self.request.user)
         return super().get_queryset()
 
     def get_serializer_class(self):
@@ -108,7 +95,7 @@ class RecipeViewSet(ModelViewSet):
         recipe = get_object_or_404(Recipe, id=pk)
         deleted_count = model.objects.filter(
             user=user, recipe=recipe).delete()[0]
-        if deleted_count == 0:
+        if not deleted_count:
             return Response(
                 {'ошибка': 'Этот рецепт уже удален из списка'},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -201,7 +188,7 @@ class FoodgramUserViewSet(UserViewSet):
             user=request.user,
             subscription=subscription
         ).delete()[0]
-        if deleted_count == 0:
+        if not deleted_count:
             return Response(
                 {'ошибка': 'Такой подписки не существует'},
                 status=status.HTTP_400_BAD_REQUEST,

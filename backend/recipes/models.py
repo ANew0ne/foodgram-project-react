@@ -1,5 +1,6 @@
 from colorfield.fields import ColorField
 from django.db import models
+from django.db.models import Exists, OuterRef
 from django.core.validators import MinValueValidator
 from django.contrib.auth import get_user_model
 
@@ -51,6 +52,66 @@ class Ingredient(models.Model):
         return self.name
 
 
+class BaseListModel(models.Model):
+    """Базовая модель для избранного и списка покупок."""
+
+    user = models.ForeignKey(
+        UserModel, on_delete=models.CASCADE, related_name='%(class)susers'
+    )
+    recipe = models.ForeignKey(
+        'Recipe', on_delete=models.CASCADE, related_name='%(class)srecipes'
+    )
+
+    class Meta:
+        abstract = True
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_recipe_in_%(class)s',
+            )
+        ]
+
+    def __str__(self):
+        return (
+            f'Рецепт "{self.recipe.name}" добавлен '
+            f'в {self._meta.verbose_name} пользователя {self.user.username}'
+        )
+
+
+class Favorites(BaseListModel):
+    """Модель списка избранного."""
+
+    class Meta(BaseListModel.Meta):
+        verbose_name = 'избранное'
+        verbose_name_plural = 'Избранное'
+
+
+class ShoppingCart(BaseListModel):
+    """Модель списка покупок."""
+
+    class Meta(BaseListModel.Meta):
+        verbose_name = 'список покупок'
+        verbose_name_plural = 'Список покупок'
+
+
+class RecipeQuerySet(models.QuerySet):
+    def recipe_annotate(self, user):
+        return self.annotate(
+            is_favorited=Exists(
+                Favorites.objects.filter(
+                    recipe=OuterRef('pk'),
+                    user=user
+                )
+            ),
+            is_in_shopping_cart=Exists(
+                ShoppingCart.objects.filter(
+                    recipe=OuterRef('pk'),
+                    user=user
+                )
+            ),
+        )
+
+
 class Recipe(models.Model):
     """Модель рецептов."""
 
@@ -89,6 +150,7 @@ class Recipe(models.Model):
         auto_now_add=True,
         db_index=True
     )
+    objects = RecipeQuerySet.as_manager()
 
     class Meta:
         verbose_name = 'рецепт'
@@ -123,45 +185,3 @@ class RecipeIngredient(models.Model):
 
     def __str__(self):
         return f'{self.recipe.name}: {self.ingredient.name}'
-
-
-class BaseListModel(models.Model):
-    """Базовая модель для избранного и списка покупок."""
-
-    user = models.ForeignKey(
-        UserModel, on_delete=models.CASCADE, related_name='%(class)susers'
-    )
-    recipe = models.ForeignKey(
-        Recipe, on_delete=models.CASCADE, related_name='%(class)srecipes'
-    )
-
-    class Meta:
-        abstract = True
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'recipe'],
-                name='unique_recipe_in_%(class)s',
-            )
-        ]
-
-    def __str__(self):
-        return (
-            f'Рецепт "{self.recipe.name}" добавлен '
-            f'в {self._meta.verbose_name} пользователя {self.user.username}'
-        )
-
-
-class Favorites(BaseListModel):
-    """Модель списка избранного."""
-
-    class Meta(BaseListModel.Meta):
-        verbose_name = 'избранное'
-        verbose_name_plural = 'Избранное'
-
-
-class ShoppingCart(BaseListModel):
-    """Модель списка покупок."""
-
-    class Meta(BaseListModel.Meta):
-        verbose_name = 'список покупок'
-        verbose_name_plural = 'Список покупок'

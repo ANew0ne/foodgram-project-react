@@ -1,4 +1,7 @@
+from contextlib import suppress
+
 from rest_framework import serializers
+from rest_framework.validators import UniqueTogetherValidator
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
@@ -23,12 +26,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
-        if request and obj and request.user.is_authenticated:
-            return obj.subscriptions.filter(
-                user=request.user,
-                subscription=obj
-            ).exists()
-        return False
+        return (request
+                and obj
+                and request.user.is_authenticated
+                and obj.subscriptions.filter(
+                    user=request.user,
+                    subscription=obj
+                ).exists())
 
 
 class TagSerializer(serializers.ModelSerializer):
@@ -119,15 +123,18 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
     def validate(self, data):
         ingredients = data.get('ingredients')
         tags = data.get('tags')
-        if not (ingredients and tags):
-            raise serializers.ValidationError('Не все поля заполнены.')
+        if not ingredients:
+            raise serializers.ValidationError(
+                'Поле "ингредиенты" не заполнено.')
+        if not tags:
+            raise serializers.ValidationError('Поле "тэги" не заполнено.')
         if (len(set([tuple(item.items()) for item in ingredients]))
                 != len(ingredients)):
             raise serializers.ValidationError(
                 'Ингредиенты не должны повторяться.'
             )
         if len(set(tags)) != len(tags):
-            raise serializers.ValidationError('Тэги не должны повторяться.')
+            raise serializers.ValidationError('Тэ ги не должны повторяться.')
         return data
 
     @transaction.atomic
@@ -175,10 +182,8 @@ class RecipesOfUserSerializer(UserSerializer):
                          get('recipes_limit'))
         recipes = obj.recipes.all()
         if recipes_limit:
-            try:
+            with suppress(ValueError):
                 recipes = recipes[:int(recipes_limit)]
-            except ValueError:
-                pass
         serializer = PreviewRecipeSerializer(
             recipes,
             many=True,
@@ -190,8 +195,6 @@ class RecipesOfUserSerializer(UserSerializer):
 
 
 class FavoriteSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
-    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
 
     class Meta:
         model = Favorites
@@ -212,8 +215,6 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
-    recipe = serializers.PrimaryKeyRelatedField(queryset=Recipe.objects.all())
 
     class Meta:
         model = ShoppingCart
@@ -234,13 +235,16 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(queryset=UserModel.objects.all())
-    subscription = serializers.PrimaryKeyRelatedField(
-        queryset=UserModel.objects.all())
 
     class Meta:
         model = Subscription
         fields = ('user', 'subscription')
+        validators = [
+            UniqueTogetherValidator(
+                queryset=Subscription.objects.all(),
+                fields=['user', 'subscription']
+            )
+        ]
 
     def validate(self, data):
         user = data.get('user')
@@ -248,12 +252,6 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         if user == subscription:
             raise serializers.ValidationError(
                 'Вы не можете подписаться на себя',
-            )
-        if Subscription.objects.filter(
-            user=user, subscription=subscription
-        ).exists():
-            raise serializers.ValidationError(
-                'Вы уже подписаны на этого пользователя',
             )
         return data
 
