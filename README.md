@@ -53,40 +53,33 @@ API реализовано с использованием фреймворка 
 + reportlab==4.0.9
 
 
-## Установка
+## Развертывание проекта
 
-### Чтобы установить API, выполните следующие действия:
+### Чтобы развернуть проект на сервере, нужно:
 
-1. Склонируйте репозиторий:
-`
-git clone https://github.com/ANew0ne/foodgram-project-react
-`
-2. Перейдите в каталог проекта:
-`
-cd foodgram-project-react
-`
-3. Создайте виртуальное окружение:
-`
-python3 -m venv venv
-`
-4. Активируйте виртуальное окружение:
-`
-source venv/bin/activate
-`
-5. Установите зависимости:
-`
-pip install -r requirements.txt
-`
-6. Создайте базу данных:
-`
-python manage.py migrate
-`
-7. Запустите сервер:
-`
-python manage.py runserver
-`
+1. Установите Docker:
+   
+2. Скачайте из репозитория файлы nginx.conf и docker-compose в свою директорию:
 
-API будет доступен по адресу http://localhost:8000/api/.
+3. Создайте файл .env по образцу:
+`
+  POSTGRES_USER=some_user
+  POSTGRES_PASSWORD=somepassword
+  POSTGRES_DB=django
+  ALLOWED_HOSTS=your hosts
+  DB_PORT=5432
+  SECRET_KEY=yoursecretkey
+  DEBUG_VALUE=True или False
+  DB_HOST=db
+`
+4. Выполните следующие команды по порядку:
+`
+  sudo docker compose -f docker-compose.yml up -d
+  sudo docker compose -f docker-compose.yml exec backend python manage.py migrate
+  sudo docker compose -f docker-compose.yml exec backend python manage.py collectstatic --no-input
+  sudo docker compose -f docker-compose.yml exec backend cp -r /app/collected_static/. /backend_static/static/
+  sudo docker compose -f docker-compose.yml exec backend python manage.py load_ingredients
+`
 
 
 ## Примеры запросов
@@ -133,4 +126,4 @@ GET /api/recipes/
 Если у вас есть какие-либо вопросы или пожелания, пожалуйста, не стесняйтесь задавать их в комментариях.
 
 ## [Автор проекта](https://github.com/ANew0ne)
-# Развернутый проект доступен по адресу: https://foodgramm.zapto.org/
+## [Развернутый проект](https://foodgramm.zapto.org/)
