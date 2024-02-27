@@ -63,6 +63,7 @@ API реализовано с использованием фреймворка 
 
 3. Создайте файл .env по образцу:
 `
+```
   POSTGRES_USER=some_user
   POSTGRES_PASSWORD=somepassword
   POSTGRES_DB=django
@@ -71,14 +72,25 @@ API реализовано с использованием фреймворка 
   SECRET_KEY=yoursecretkey
   DEBUG_VALUE=True или False
   DB_HOST=db
+```
 `
 4. Выполните следующие команды по порядку:
 `
+```
   sudo docker compose -f docker-compose.yml up -d
+```
+```
   sudo docker compose -f docker-compose.yml exec backend python manage.py migrate
+```
+```
   sudo docker compose -f docker-compose.yml exec backend python manage.py collectstatic --no-input
+```
+```
   sudo docker compose -f docker-compose.yml exec backend cp -r /app/collected_static/. /backend_static/static/
+```
+```
   sudo docker compose -f docker-compose.yml exec backend python manage.py load_ingredients
+```
 `
 
 
@@ -89,7 +101,6 @@ API реализовано с использованием фреймворка 
 Получение списка ингредиентов
 ```
 GET /api/ingredients/
-
 ```
 Получение тэга
 ```
