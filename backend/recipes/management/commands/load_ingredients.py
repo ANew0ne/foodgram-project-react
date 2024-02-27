@@ -18,4 +18,4 @@ class Command(BaseCommand):
                     measurement_unit=ingredient_data['measurement_unit'],
                 )
             )
-        Ingredient.objects.bulk_create(ingredients)
+        Ingredient.objects.bulk_create(ingredients, ignore_conflicts=True)

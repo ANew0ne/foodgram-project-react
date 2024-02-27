@@ -62,8 +62,8 @@ class RecipeViewSet(ModelViewSet):
     def download_file(ingredients):
         buffer = io.BytesIO()
         p = canvas.Canvas(buffer, pagesize=A4)
-        pdfmetrics.registerFont(TTFont('Verdana', 'Verdana.ttf'))
-        p.setFont('Verdana', 18)
+        pdfmetrics.registerFont(TTFont('Calibri', 'Calibri.ttf'))
+        p.setFont('Calibri', 18)
         p.drawString(220, 800, 'Список покупок')
         x = 20
         y = 750
