@@ -62,7 +62,7 @@ API реализовано с использованием фреймворка 
 2. Скачайте из репозитория файлы nginx.conf и docker-compose в свою директорию:
 
 3. Создайте файл .env по образцу:
-`
+
 ```
   POSTGRES_USER=some_user
   POSTGRES_PASSWORD=somepassword
@@ -73,9 +73,8 @@ API реализовано с использованием фреймворка 
   DEBUG_VALUE=True или False
   DB_HOST=db
 ```
-`
+
 4. Выполните следующие команды по порядку:
-`
 ```
   sudo docker compose -f docker-compose.yml up -d
 ```
@@ -91,7 +90,6 @@ API реализовано с использованием фреймворка 
 ```
   sudo docker compose -f docker-compose.yml exec backend python manage.py load_ingredients
 ```
-`
 
 
 ## Примеры запросов
